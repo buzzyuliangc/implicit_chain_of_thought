@@ -33,11 +33,13 @@ def evaluate(dataloader, tokenizer, ctx, teacher, student, delta, subset, max_ne
     total_correct_tokens = 0
     total_loss = 0
     for batch in tqdm.tqdm(dataloader):
+        #shouldn't need to change the data inputs here as long as we input combined data
         input_ids_all = batch['input_ids_all'].to(device)
         input_ids_nocot = batch['input_ids_nocot'].to(device)
         labels_nocot = batch['labels_nocot'].to(device)
         batch_size = input_ids_nocot.shape[0]
         with ctx:
+            #same operation as in training.
             teacher_states = teacher.extract_states(input_ids=input_ids_all, delta=delta, subset=subset)
             outputs = student.compute_loss(input_ids=input_ids_nocot, labels=labels_nocot, teacher_states=teacher_states)
             loss = outputs.loss
@@ -140,6 +142,8 @@ def main():
             labels_nocot = batch['labels_nocot'].to(device)
             with ctx:
                 with torch.no_grad():
+                    #look at the shape of teacher_states, combine two teacher model states here, maybe layout input_ids_all and concatenate every two rows
+                    #we can use a different data_loader for the teachers using original singular data here. but do extract_half_states
                     teacher_states = teacher.extract_states(input_ids=input_ids_all, delta=args.delta, subset=args.subset)
                 outputs = student.compute_loss(input_ids=input_ids_nocot, labels=labels_nocot, teacher_states=teacher_states)
             loss = outputs.loss

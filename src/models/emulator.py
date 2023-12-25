@@ -39,6 +39,7 @@ class Emulator(nn.Module):
         self.base_model.eval()
 
     def forward(self, input_ids, requires_backward=False):
+        #make sure get_sep_position still works after data format changes
         sep_positions = get_sep_position(input_ids, self.tokenizer.eos_token_id)
         input_ids = input_ids[:, :sep_positions.max()+1]
         outputs = self.base_model.forward(mode='forward_emulator', \

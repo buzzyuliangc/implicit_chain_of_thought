@@ -38,6 +38,7 @@ class Teacher(nn.Module):
             last_position_to_extract = second_sep_positions[batch_id]
             if subset == 'diagonal':
                 if delta == 'dynamic': # determine actual delta
+                    #can also times delta by 2
                     delta = (last_position_to_extract - first_position_to_extract) / (self.num_layers - 1)
             elif subset == 'first_column' or subset == 'last_column':
                 delta = 0
@@ -45,6 +46,7 @@ class Teacher(nn.Module):
                 assert subset == 'last_column', subset
                 delta = 0
                 first_position_to_extract = last_position_to_extract
+            # divide by 2 here so that the positions to extract is 2 time less
             positions_to_extract = torch.round(first_position_to_extract + layer_ids * delta)
             positions_to_extract = positions_to_extract.clamp(max=last_position_to_extract)
             positions_to_extract_per_layer[batch_id] = positions_to_extract
@@ -58,6 +60,7 @@ class Teacher(nn.Module):
 
         # Find the boundaries between input and CoT, and CoT and output
         # [input] first_sep_position [CoT] second_position [output] eos
+        # make sure get_sep_position works after input changes
         first_sep_positions = get_sep_position(input_ids, self.tokenizer.eos_token_id, skip=0)
         second_sep_positions = get_sep_position(input_ids, self.tokenizer.eos_token_id, skip=1)
         input_ids = input_ids[:, :second_sep_positions.max()+1]

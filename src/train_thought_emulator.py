@@ -33,6 +33,7 @@ def evaluate(dataloader, tokenizer, ctx, teacher, emulator, delta, subset):
         batch_size = input_ids_cot.shape[0]
         with ctx:
             teacher_states = teacher.extract_states(input_ids=input_ids_cot, delta=delta, subset=subset)
+            #similar to train student here, use original data for teacher and combined for emulator
             outputs = emulator.compute_loss(input_ids=input_ids_cot, teacher_states=teacher_states)
             loss = outputs.loss
         total_loss += outputs.total_loss.item()

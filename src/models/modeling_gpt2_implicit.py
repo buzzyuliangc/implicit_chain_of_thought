@@ -205,6 +205,7 @@ class GPT2ImplicitModel(GPT2Model):
                 #    zs_p.append(f_h_c)
                 f_h_cs.append(f_h_c)
                 next_input = f_h_c
+                #hidden state prediction part reset past_keys midway?
                 if rnn is not None:
                     #import pdb; pdb.set_trace()
                     if key_proj is not None:
@@ -248,7 +249,7 @@ class GPT2ImplicitModel(GPT2Model):
                     hidden_states[:, positions_to_substitute[0]] = states_to_substitute[i]
                 else:
                     for batch_id in range(batch_size):
-                        hidden_states[batch_id, positions_to_substitut[batch_id]] = states_to_substitute[i][batch_id]
+                        hidden_states[batch_id, positions_to_substitute[batch_id]] = states_to_substitute[i][batch_id]
 
 
             if self.gradient_checkpointing and self.training:
