@@ -12,7 +12,7 @@ def extract_components(text):
 
 def main():
 	combined_lines = []
-	with open('train.txt', 'r') as file:
+	with open('test_bigbench.txt', 'r') as file:
 	    lines = file.readlines()
 
 	for i in range(0, len(lines), 2):
@@ -25,14 +25,14 @@ def main():
 
 		q2,c2,a2 = extract_components(lines[i+1])
 	    
-		q = q1 + ' , ' + q2
-		c = c1 + ' , ' + c2
-		a = a1 + ' , ' + a2
+		q = q1.strip() + ', ' + q2.strip()
+		c = c1.strip() + ', ' + c2.strip()
+		a = a1.strip() + ', ' + a2.strip()
 		combined_line = q + "||" + c + " #### " + a
 		combined_lines.append(combined_line)
 
 	# Write the combined lines to a new file
-	with open('train_combined.txt', 'w') as file:
+	with open('test_bigbench_combined.txt', 'w') as file:
 	    for line in combined_lines:
 	        file.write(line + '\n')
 

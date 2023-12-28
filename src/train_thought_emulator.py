@@ -24,7 +24,7 @@ logging.disable(logging.WARNING)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 @torch.no_grad()
-def evaluate(dataloader, tokenizer, ctx, teacher, emulator, delta, subset):
+def evaluate(dataloader, tokenizer, ctx, teacher, emulator, delta, subset, parallel_mode):
     total_instances = 0
     total_loss = 0
     for batch in tqdm.tqdm(dataloader):
@@ -32,7 +32,7 @@ def evaluate(dataloader, tokenizer, ctx, teacher, emulator, delta, subset):
         input_ids_cot = batch['input_ids_cot'].to(device)
         batch_size = input_ids_cot.shape[0]
         with ctx:
-            teacher_states = teacher.extract_states(input_ids=input_ids_cot, delta=delta, subset=subset)
+            teacher_states = teacher.extract_states(input_ids=input_ids_cot, delta=delta, subset=subset, parallel_mode=parallel_mode)
             #similar to train student here, use original data for teacher and combined for emulator
             outputs = emulator.compute_loss(input_ids=input_ids_cot, teacher_states=teacher_states)
             loss = outputs.loss
@@ -50,6 +50,7 @@ def main():
     parser.add_argument('--val_path', type=str, required=True)
     parser.add_argument('--save_model', type=str, required=True)
     parser.add_argument('--base_model', type=str, default='gpt2')
+    parser.add_argument('--parallel_mode', type=str, default= None)
     parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=5e-5)
@@ -103,7 +104,7 @@ def main():
             input_ids_nocot = batch['input_ids_nocot'].to(device)
             with ctx:
                 with torch.no_grad():
-                    teacher_states = teacher.extract_states(input_ids=input_ids_cot, delta=args.delta, subset=args.subset)
+                    teacher_states = teacher.extract_states(input_ids=input_ids_cot, delta=args.delta, subset=args.subset, parallel_mode=args.parallel_mode)
                 outputs = emulator.compute_loss(input_ids=input_ids_nocot, teacher_states=teacher_states)
             loss = outputs.loss
 
@@ -114,7 +115,7 @@ def main():
             if step % 100 == 0:
                 print (f"Step: {step}. Loss: {loss}.")
             step += 1
-        loss = evaluate(val_dataloader, tokenizer, ctx, teacher, emulator, args.delta, args.subset)
+        loss = evaluate(val_dataloader, tokenizer, ctx, teacher, emulator, args.delta, args.subset, args.parallel_mode)
         print (f'Val. Loss: {loss}.')
         emulator.save_pretrained(os.path.join(args.save_model, f'checkpoint_{epoch}'))
     

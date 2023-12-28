@@ -26,7 +26,7 @@ logging.disable(logging.WARNING) # disable WARNING, INFO and DEBUG logging every
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 @torch.no_grad()
-def evaluate(dataloader, tokenizer, ctx, teacher, student, delta, subset, max_new_tokens):
+def evaluate(dataloader, tokenizer, ctx, teacher, student, delta, subset, max_new_tokens, parallel_mode):
     total_instances = 0
     total_tokens = 0
     total_correct = 0
@@ -40,7 +40,7 @@ def evaluate(dataloader, tokenizer, ctx, teacher, student, delta, subset, max_ne
         batch_size = input_ids_nocot.shape[0]
         with ctx:
             #same operation as in training.
-            teacher_states = teacher.extract_states(input_ids=input_ids_all, delta=delta, subset=subset)
+            teacher_states = teacher.extract_states(input_ids=input_ids_all, delta=delta, subset=subset, parallel_mode=parallel_mode)
             outputs = student.compute_loss(input_ids=input_ids_nocot, labels=labels_nocot, teacher_states=teacher_states)
             loss = outputs.loss
             token_accuracy = outputs.token_accuracy.item()
@@ -89,6 +89,7 @@ def main():
     parser.add_argument('--save_model', type=str, required=True)
     parser.add_argument('--max_new_tokens', type=int, default=128)
     parser.add_argument('--base_model', type=str, default='gpt2')
+    parser.add_argument('--parallel_mode', type=str, default= None)
     parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=5e-5)
@@ -142,9 +143,7 @@ def main():
             labels_nocot = batch['labels_nocot'].to(device)
             with ctx:
                 with torch.no_grad():
-                    #look at the shape of teacher_states, combine two teacher model states here, maybe layout input_ids_all and concatenate every two rows
-                    #we can use a different data_loader for the teachers using original singular data here. but do extract_half_states
-                    teacher_states = teacher.extract_states(input_ids=input_ids_all, delta=args.delta, subset=args.subset)
+                    teacher_states = teacher.extract_states(input_ids=input_ids_all, delta=args.delta, subset=args.subset, parallel_mode=args.parallel_mode)
                 outputs = student.compute_loss(input_ids=input_ids_nocot, labels=labels_nocot, teacher_states=teacher_states)
             loss = outputs.loss
             token_accuracy = outputs.token_accuracy.item()
@@ -158,7 +157,7 @@ def main():
                 print (f"Step: {step}. PPL: {ppl}. Token Accuracy: {token_accuracy}")
                 sys.stdout.flush()
             step += 1
-        accuracy, token_accuracy, ppl = evaluate(val_dataloader, tokenizer, ctx, teacher, student, args.delta, args.subset, args.max_new_tokens)
+        accuracy, token_accuracy, ppl = evaluate(val_dataloader, tokenizer, ctx, teacher, student, args.delta, args.subset, args.max_new_tokens, args.parallel_mode)
         print (f'Val. PPL: {ppl}; Accuracy: {accuracy}; Token Accuracy: {token_accuracy}.')
         student.save_pretrained(os.path.join(args.save_model, f'checkpoint_{epoch}'))
 

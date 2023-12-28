@@ -1,6 +1,7 @@
 #untracked files
 .DS_Store
 src/sep_dataloader_check.py
+src/model_param_check.py
 
 
 #untracker folders

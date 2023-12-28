@@ -29,16 +29,18 @@ class Teacher(nn.Module):
         outputs = self.base_model.forward(input_ids=input_ids)
         return outputs
 
-    def compute_positions_to_extract_per_layer(self, subset, delta, first_sep_positions, second_sep_positions):
+    def compute_positions_to_extract_per_layer(self, subset, delta, first_sep_positions, second_sep_positions, comma_positions = None, parallel_mode = "ladder"):
         batch_size = first_sep_positions.shape[0]
         positions_to_extract_per_layer = first_sep_positions.new_zeros(batch_size, self.num_layers).long()
         layer_ids = torch.arange(start=0, end=self.num_layers).to(first_sep_positions.device)
+        if comma_positions != None:
+            #if we are doing parallel computing, each cot will use len(layer_ids) / 2 hidden states 
+            layer_ids = layer_ids.chunk(2)[0]    
         for batch_id in range(batch_size):
             first_position_to_extract = first_sep_positions[batch_id]
             last_position_to_extract = second_sep_positions[batch_id]
             if subset == 'diagonal':
                 if delta == 'dynamic': # determine actual delta
-                    #can also times delta by 2
                     delta = (last_position_to_extract - first_position_to_extract) / (self.num_layers - 1)
             elif subset == 'first_column' or subset == 'last_column':
                 delta = 0
@@ -46,13 +48,30 @@ class Teacher(nn.Module):
                 assert subset == 'last_column', subset
                 delta = 0
                 first_position_to_extract = last_position_to_extract
-            # divide by 2 here so that the positions to extract is 2 time less
-            positions_to_extract = torch.round(first_position_to_extract + layer_ids * delta)
-            positions_to_extract = positions_to_extract.clamp(max=last_position_to_extract)
-            positions_to_extract_per_layer[batch_id] = positions_to_extract
+            #if we are doing parallel reasoning
+            if comma_positions != None:
+                #locate comma seperating cots and divide the reasoning tokens into positions_to_extract and positions_to_extract_2
+                comma_position = comma_positions[batch_id]
+                #position_to_extract: evenly spaced reasoning tokens for question1, position_to_extract_2: same thing for question2
+                positions_to_extract = torch.round(first_position_to_extract + layer_ids * delta)
+                positions_to_extract = positions_to_extract.clamp(max=comma_position)
+                positions_to_extract_2 = torch.round(comma_position + layer_ids * delta)
+                positions_to_extract_2 = positions_to_extract_2.clamp(max=last_position_to_extract)
+                if parallel_mode == "ladder":
+                    #ladder mode put all evenly spaced q1 states in first half hidden states and q2 in latter half
+                    positions_to_extract_per_layer[batch_id] = torch.cat((positions_to_extract, positions_to_extract_2),-1)
+                else:
+                    #alternating mode organize q1 states and q2 states alternatingly
+                    assert parallel_mode == "alternating"
+                    combined_tensor = torch.cat((positions_to_extract.unsqueeze(1), positions_to_extract_2.unsqueeze(1)), dim=1)
+                    positions_to_extract_per_layer[batch_id] = combined_tensor.flatten()
+            else:
+                positions_to_extract = torch.round(first_position_to_extract + layer_ids * delta)
+                positions_to_extract = positions_to_extract.clamp(max=last_position_to_extract)
+                positions_to_extract_per_layer[batch_id] = positions_to_extract
         return positions_to_extract_per_layer
 
-    def extract_states(self, input_ids, delta, subset='diagonal'):
+    def extract_states(self, input_ids, delta, subset='diagonal', parallel_mode = None):
         if delta.isnumeric():
             delta = int(delta)
         batch_size = input_ids.shape[0]
@@ -60,18 +79,22 @@ class Teacher(nn.Module):
 
         # Find the boundaries between input and CoT, and CoT and output
         # [input] first_sep_position [CoT] second_position [output] eos
-        # make sure get_sep_position works after input changes
         first_sep_positions = get_sep_position(input_ids, self.tokenizer.eos_token_id, skip=0)
         second_sep_positions = get_sep_position(input_ids, self.tokenizer.eos_token_id, skip=1)
+    
+        # Extract question + cot
         input_ids = input_ids[:, :second_sep_positions.max()+1]
-
         # Forward the teacher to produce all hidden states
         outputs = self.base_model.forward(input_ids=input_ids, output_hidden_states=True)
         hidden_states = outputs.hidden_states[:-1]
 
-        # Compute the positions to extract teacher states (t_l in the paper)
-        positions_to_extract_per_layer = self.compute_positions_to_extract_per_layer(subset, delta, first_sep_positions, second_sep_positions)
-
+        if parallel_mode != None:
+            #extract comma positions, note that this won't work if there is space in front of comma in input data due to gpt2 tokenization
+            cot_comma_sep_positions = get_sep_position(input_ids, self.tokenizer.vocab[","], skip=1)
+            positions_to_extract_per_layer = self.compute_positions_to_extract_per_layer(subset, delta, first_sep_positions, second_sep_positions, cot_comma_sep_positions, parallel_mode)
+        else:
+            # Compute the positions to extract teacher states (t_l in the paper)
+            positions_to_extract_per_layer = self.compute_positions_to_extract_per_layer(subset, delta, first_sep_positions, second_sep_positions)
         # Extract teacher states
         teacher_states_extracted = []
         for i, hidden_state in enumerate(hidden_states):
