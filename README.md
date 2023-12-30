@@ -1,5 +1,8 @@
 # Implicit Chain of Thought Reasoning Challenge
 
+## Reference
+[Implicit Chain of Thought Reasoning via Knowledge Distillation](https://github.com/da03/implicit_chain_of_thought)
+
 ## Reasoning
 ### Parallel Arithmetic
 Following the hint of using half of the states for each of the problem's CoT, there are several potential ways of achieving this: 
@@ -17,15 +20,14 @@ For the restructuring teacher hidden states part, I have experimented with two a
 ##### -Ladder
 
 ![](imgs/ladder.png)
+<sub><sup>The arithmetic in the graph is only for illustration purposes. Duo 2 X 2 mult expressions are used in training<sup><sub> 
 
-(The arithmetic in the graph is only for illustration purposes. Duo 2 X 2 mult expressions are used in training) 
 
-In the ladder approach, a student model with L layers extract its first L/2 hidden states from teacher's hidden states positions (first EOS position, second coma position), and the latter half from (second coma position, second EOS position) with a fixed interval of delta. 
+In the ladder approach, a student model with L layers extract its first L/2 hidden states from teacher's hidden states positions [first EOS position, cot coma position), and the latter half from [cot coma position, second EOS position). The extracted states are then filtered with the fixed distance delta. 
 
 The rationale behind this construct is letting the student transformers first focus on the CoT of the first arithmetic problem and then focus on the CoT of the second arithmetic problem. 
 
-
-*The ladder approach at the first glance is very similar to the original Implicit CoT Model with no parallel CoT. The origial arichitecture can achieve something similar if we retrain the teacher model with double aritmetic data and make no changes to the teacher model extraction logic. There is, however, one crucial difference. By locating the comma position and precisely separating data COT, we can train the model to process arithmetic problems with different lengths without worrying about fluctuations of the hidden-state distribution. The original architecture, if used on double computing, also can not precisely separate the CoTs of the two arithmetics due to how GPT2 tokenizes words. The GPT2 tokenizer merges certain character and space pattern into one token, which leads to an uneven number of tokens for arithmetic equations of the same length. The ladder approach, on the other hand, precisely locates the comma position and seperates the corresponding CoTs, which helps the model to digest a more predictive pattern of hidden states.   
+<sub>*The ladder approach at the first glance is similar to the original Implicit CoT Model with no parallel CoT. There is, however, one crucial difference. By locating the comma position and precisely separating data COT, we can train the model to process arithmetic problems with different lengths without worrying about fluctuations of the hidden-state distribution. Furthermore, the vanilla architecture, can not precisely separate the CoTs of the two equal-length arithmetics due to how GPT2 tokenizes words. The GPT2 tokenizer merges certain character and space pattern into one token, which may lead to an uneven number of tokens for equal-length arithmetics. The ladder approach, on the other hand, precisely locates the comma position and seperates the corresponding CoTs, which may help the model to learn a more predictive pattern of hidden states.<sub>   
 
 ##### -Alternating
 
@@ -34,6 +36,16 @@ The rationale behind this construct is letting the student transformers first fo
 The alternating approach is a variation of the ladder approach. After splitting teacher's hidden states into corresponding chunks of the first and second CoT, the alternating approach helps the student model to solve the problems step by step "simutaneously". This approach may benefit from the fact that similar arithmetic problems have similar solving steps. The model may learn to streamline the process with similar setups in this approach.  
 
 ## Results
+Duo 2 X 2 Mult is trained on gpt2-small based teacher/student/emulator models. Same numbers of epochs were used acrossed methods for a controlled comparison. The vanilla method refers to training Duo 2 X 2 Mult Data on the [original implicit CoT architecture](https://github.com/da03/implicit_chain_of_thought) with no changes. The model was also trained and tested under ladder mode on Duo 4 x 4 Mult dataset.
+
+| Method      | Accuracy | Token Accuracy |
+|-------------|----------|----------------|
+| Ladder      | 1.00     | 1.00           | 
+| Alternating | 1.00     | 1.00           | 
+| Vanilla     | 1.00     | 1.00           | 
+| 4X4 Ladder  | 0.00     | 0.76           | 
+
+We can see from the results that gpt2-small is very powerful when it comes to duo 2 X 2 Mult. Every method, including the vanilla approach, has reached an accuracy of 100% on the 1000-problem test benchmark. The model, however, is not powerful enough when we raise the bar to Duo 4 X 4 Mult dataset. Raising the number of hidden states by running the model on gpt2-medium or gpt2-large may help alleviate the problem.  
 
 ## Prerequisites
 
@@ -44,7 +56,7 @@ The alternating approach is a variation of the ladder approach. After splitting 
 
 For the purpose of the challenge, we use 2 X 2 Mult dataset. (tried 4 X 4 mult, but the training mind-reading student section converges at .78 token accuracy. GPT2-small's architecture is probably insufficient for parallel 4 X 4 Mult)
 
-All dataset files and log files during inference are included in this repo, with the exception of large training files maintained under Git LFS. Model checkpoints are stored on Google Drive. The folder containing all checkpoints can be found at [this link](https://drive.google.com/drive/folders/1Sclr5bmLZIUcktCaFAeWRTevRGLUwlC_?usp=drive_link).
+All dataset files and log files during inference are included in this repo, with the exception of large training files maintained under Git LFS. Model checkpoints are stored on Google Drive. The folder containing all checkpoints can be found at [this link](https://drive.google.com/drive/folders/1WFbsgdjiHvZwzC_r8Q04jevAw4D4m8f8).
 
 ## Usage
 
