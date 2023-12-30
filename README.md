@@ -58,6 +58,8 @@ For the purpose of the challenge, we use 2 X 2 Mult dataset. (tried 4 X 4 mult, 
 
 All dataset files and log files during inference are included in this repo, with the exception of large training files maintained under Git LFS. Model checkpoints are stored on Google Drive. The folder containing all checkpoints can be found at [this link](https://drive.google.com/drive/folders/1WFbsgdjiHvZwzC_r8Q04jevAw4D4m8f8).
 
+Generation logs can be found under generation_logs/2_by_2_mult
+
 ## Usage
 
 We use 2 X 2 Mult with GPT2-Small as an example. We assume that the working directory is `implicit_chain_of_thought` throughout this document.
