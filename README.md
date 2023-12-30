@@ -153,8 +153,8 @@ export FOLDER=data/2_by_2_mult
 export EPOCHS=40
 export LR=5e-5
 export BSZ=32
-export STUDENT=train_models/2_by_2_mult/gpt2/student_initial/checkpoint_6
-export EMULATOR=train_models/2_by_2_mult/gpt2/emulator_initial/checkpoint_5
+export STUDENT=train_models/2_by_2_mult/gpt2/student_initial/checkpoint_8
+export EMULATOR=train_models/2_by_2_mult/gpt2/emulator_initial/checkpoint_9
 export SAVE=train_models/2_by_2_mult/gpt2/
 mkdir -p $SAVE
 TOKENIZERS_PARALLELISM=false CUDA_VISIBLE_DEVICES=0 stdbuf -oL -eL python src/train_coupled_emulator_and_student.py \
