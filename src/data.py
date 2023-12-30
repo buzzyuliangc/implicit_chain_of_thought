@@ -8,12 +8,13 @@ from torch.nn.utils.rnn import pad_sequence
 def extract_answer(text):
     split_pattern = '####'
     if split_pattern not in text:
-        return text.strip().replace(',', '')
+        #return text.strip().replace(',', '')
+        return text.strip()
     else:
         _, ans = text.strip().split('####', 1)
         ans = '####' + ans
-        ans = ans.strip().replace(',', '')
-        return ans
+        #ans = ans.strip().replace(',', '')
+        return ans.strip()
 
 def extract_cot(text):
     split_pattern = '####'
